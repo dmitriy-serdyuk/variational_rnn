@@ -13,7 +13,7 @@ from blocks.graph import ComputationGraph
 from blocks.extensions import Printing
 from blocks.extensions.monitoring import (TrainingDataMonitoring,
                                           DataStreamMonitoring)
-from blocks.extensions.saveload import Checkpoint
+from blocks.extensions.saveload import Checkpoint, Dump
 from blocks.bricks.lookup import LookupTable
 from blocks.model import Model
 
@@ -88,7 +88,9 @@ def main():
     train_monitor = TrainingDataMonitoring(
         [cost], prefix='train', after_batch=True)
     extensions = [train_monitor, Printing(every_n_batches=40),
-                  Checkpoint('rnn', every_n_batches=201)]
+                  Dump('rnn', every_n_batches=200),
+                  #Checkpoint('rnn.pkl', every_n_batches=200)
+                  ]
     main_loop = MainLoop(model=model, algorithm=algorithm,
                          data_stream=data_stream, extensions=extensions)
     main_loop.run()
