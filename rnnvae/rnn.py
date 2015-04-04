@@ -5,7 +5,7 @@ from theano import tensor
 
 from blocks.algorithms import GradientDescent, Adam
 from blocks.bricks import Softmax, Tanh, Linear
-from blocks.bricks.recurrent import SimpleRecurrent
+from blocks.bricks.recurrent import SimpleRecurrent, Bidirectional, LSTM
 from blocks.initialization import Uniform, IsotropicGaussian, Constant
 from blocks.bricks.cost import CategoricalCrossEntropy
 from blocks.main_loop import MainLoop
@@ -43,7 +43,7 @@ def _filter_long(data):
     return len(data[0]) <= 100
 
 
-def main():
+def main(model_path):
     dataset_options = dict(dictionary=char2code, level="character",
                            preprocess=_lower)
     dataset = OneBillionWord("training", [99], **dataset_options)
@@ -61,9 +61,10 @@ def main():
                          weights_init=IsotropicGaussian(0.01),
                          biases_init=Constant(0.))
 
-    rnn = SimpleRecurrent(dim, Tanh(),
-                          weights_init=IsotropicGaussian(0.01),
-                          biases_init=Constant(0.))
+    prototype = SimpleRecurrent(dim, Tanh())
+    rnn = Bidirectional(prototype,
+                        weights_init=IsotropicGaussian(0.01),
+                        biases_init=Constant(0.))
     rnn.initialize()
     lookup.initialize()
     y_hat = rnn.apply(lookup.apply(features), mask=features_mask)
@@ -76,19 +77,23 @@ def main():
     seq_lenght = y_hat.shape[0]
     batch_size = y_hat.shape[1]
     y_hat = Softmax().apply(y_hat.reshape((seq_lenght * batch_size, -1))).reshape(y_hat.shape)
-    cost = CategoricalCrossEntropy().apply(features[1:, :].reshape((-1,)),
-                                           y_hat[:-1, :, :].reshape((-1, len(all_chars))))
+    cost = CategoricalCrossEntropy().apply(
+        features[1:, :].reshape((-1,)),
+        y_hat[:-1, :, :].reshape((-1, len(all_chars)))) * seq_lenght * batch_size
     cost.name = 'cost'
+    cost_per_character = cost / features_mask.sum()
+    cost_per_character.name = 'cost_per_character'
 
-    cg = ComputationGraph(cost)
+    cg = ComputationGraph([cost, cost_per_character])
     model = Model(cost)
     algorithm = GradientDescent(step_rule=Adam(), cost=cost,
                                 params=cg.parameters)
 
     train_monitor = TrainingDataMonitoring(
-        [cost], prefix='train', after_batch=True)
+        [cost, cost_per_character], prefix='train',
+        after_batch=True)
     extensions = [train_monitor, Printing(every_n_batches=40),
-                  Dump('rnn', every_n_batches=200),
+                  Dump(model_path, every_n_batches=200),
                   #Checkpoint('rnn.pkl', every_n_batches=200)
                   ]
     main_loop = MainLoop(model=model, algorithm=algorithm,
@@ -96,4 +101,4 @@ def main():
     main_loop.run()
 
 if __name__ == '__main__':
-    main()
+    main('rnn.bidirectional')
