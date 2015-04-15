@@ -92,7 +92,7 @@ class VariationalAutoEncoder(Initializable):
 
 def main(save, load, sample, path, **kwargs):
     input_dim = 784
-    hidden_dim = 10
+    hidden_dim = 2
     batch_size = 100
 
     features = tensor.matrix('features')
@@ -152,8 +152,25 @@ def main(save, load, sample, path, **kwargs):
         num_samples = 10
         samples = vae.sample(num_samples)
         samples = function([], samples)()
+        z = tensor.matrix('z')
+        decode_z = function([z], vae.decoder.apply(z))
+
         from matplotlib import pyplot as plt
+
         sample = numpy.zeros((28, 0))
+
+        size = 20
+        z_val = numpy.zeros((size ** 2, 2))
+        for i in xrange(size):
+            for j in xrange(size):
+                z_val[i * size + j, :] = numpy.array([i / float(size),
+                                                      j / float(size)])
+        samples = decode_z(z_val)
+        samples = samples.reshape((size, size, 28, 28))
+        samples = numpy.concatenate(samples, axis=1)
+        samples = numpy.concatenate(samples, axis=1)
+        plt.imshow(samples)
+        plt.show()
         for i in xrange(num_samples):
             sample = numpy.concatenate([sample, samples[i].reshape((28, 28))],
                                        axis=1)
