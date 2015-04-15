@@ -90,7 +90,7 @@ class VariationalAutoEncoder(Initializable):
         return tensor.nnet.binary_crossentropy(x_hat, x).sum(axis=1)
 
 
-def main(save, load, sample, **kwargs):
+def main(save, load, sample, path, **kwargs):
     input_dim = 784
     hidden_dim = 10
     batch_size = 100
@@ -118,9 +118,9 @@ def main(save, load, sample, **kwargs):
 
     extensions = []
     if load:
-        extensions.append(LoadFromDump('VAE'))
+        extensions.append(LoadFromDump(path))
     if save:
-        extensions.append(Dump('VAE', after_epoch=True))
+        extensions.append(Dump(path, after_epoch=True))
     extensions.append(FinishAfter(after_n_epochs=6001))
 
     train_dataset = MNIST('train', binary=True, sources=('features',))
@@ -146,7 +146,7 @@ def main(save, load, sample, **kwargs):
     if not sample:
         main_loop.run()
     else:
-        parameters = load_parameter_values('VAE/params.npz')
+        parameters = load_parameter_values(path + '/params.npz')
         model.set_param_values(parameters)
 
         num_samples = 10
@@ -155,7 +155,8 @@ def main(save, load, sample, **kwargs):
         from matplotlib import pyplot as plt
         sample = numpy.zeros((28, 0))
         for i in xrange(num_samples):
-            sample = numpy.concatenate([sample, samples[i].reshape((28, 28))], axis=1)
+            sample = numpy.concatenate([sample, samples[i].reshape((28, 28))],
+                                       axis=1)
         plt.imshow(sample)
         plt.show()
         f = function([features], x_hat)
@@ -175,6 +176,8 @@ def parse_args():
                         help='Load model')
     parser.add_argument('--sample', action='store_true', default=False,
                         help='Sample images')
+    parser.add_argument('--path', type=str, default='vae',
+                        help='Experiment path')
     return parser.parse_args()
 
 
