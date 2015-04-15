@@ -4,13 +4,13 @@ from theano import tensor, function
 
 from blocks.bricks import (MLP, Sigmoid, application, Random,
                            Initializable, Identity)
-from blocks.bricks.cost import CostMatrix
 from blocks.initialization import IsotropicGaussian, Constant
 from blocks.main_loop import MainLoop
 from blocks.extensions import FinishAfter, Timing, Printing
 from blocks.extensions.saveload import Dump, LoadFromDump
 from blocks.extensions.monitoring import (TrainingDataMonitoring,
                                           DataStreamMonitoring)
+from blocks.dump import load_parameter_values
 from blocks.algorithms import Scale, RMSProp, StepClipping, GradientDescent
 from blocks.model import Model
 from blocks.graph import ComputationGraph
@@ -90,7 +90,7 @@ class VariationalAutoEncoder(Initializable):
         return tensor.nnet.binary_crossentropy(x_hat, x).sum(axis=1)
 
 
-def main(save, load, **kwargs):
+def main(save, load, sample, **kwargs):
     input_dim = 784
     hidden_dim = 10
     batch_size = 100
@@ -143,24 +143,28 @@ def main(save, load, **kwargs):
     main_loop = MainLoop(model=model, algorithm=algorithm,
                          data_stream=train_stream,
                          extensions=extensions)
-    main_loop.run()
+    if not sample:
+        main_loop.run()
+    else:
+        parameters = load_parameter_values('VAE/params.npz')
+        model.set_param_values(parameters)
 
-    num_samples = 10
-    samples = vae.sample(num_samples)
-    samples = function([], samples)()
-    from matplotlib import pyplot as plt
-    sample = numpy.zeros((28, 0))
-    for i in xrange(num_samples):
-        sample = numpy.concatenate([sample, samples[i].reshape((28, 28))], axis=1)
-    plt.imshow(sample)
-    plt.show()
-    f = function([features], x_hat)
-    for data in train_stream.get_epoch_iterator():
-        data_hat = f(data[0])
-        break
-    for image in data_hat:
-        plt.imshow(image.reshape((28, 28)))
+        num_samples = 10
+        samples = vae.sample(num_samples)
+        samples = function([], samples)()
+        from matplotlib import pyplot as plt
+        sample = numpy.zeros((28, 0))
+        for i in xrange(num_samples):
+            sample = numpy.concatenate([sample, samples[i].reshape((28, 28))], axis=1)
+        plt.imshow(sample)
         plt.show()
+        f = function([features], x_hat)
+        for data in train_stream.get_epoch_iterator():
+            data_hat = f(data[0])
+            break
+        for image in data_hat:
+            plt.imshow(image.reshape((28, 28)))
+            plt.show()
 
 
 def parse_args():
@@ -169,6 +173,8 @@ def parse_args():
                         help='Save model')
     parser.add_argument('--load', action='store_true', default=False,
                         help='Load model')
+    parser.add_argument('--sample', action='store_true', default=False,
+                        help='Sample images')
     return parser.parse_args()
 
 
