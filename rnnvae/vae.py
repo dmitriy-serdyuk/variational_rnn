@@ -123,7 +123,7 @@ def main(save, load, sample, path, **kwargs):
         extensions.append(Dump(path, after_epoch=True))
     extensions.append(FinishAfter(after_n_epochs=6001))
 
-    train_dataset = MNIST('train', binary=True, sources=('features',))
+    train_dataset = MNIST('train', binary=False, sources=('features',))
     train_stream = DataStream(train_dataset,
                               iteration_scheme=ShuffledScheme(
                                   examples=train_dataset.num_examples,
@@ -159,30 +159,27 @@ def main(save, load, sample, path, **kwargs):
 
         sample = numpy.zeros((28, 0))
 
-        size = 20
+        size = 40
         z_val = numpy.zeros((size ** 2, 2))
         for i in xrange(size):
             for j in xrange(size):
-                z_val[i * size + j, :] = numpy.array([i / float(size),
-                                                      j / float(size)])
+                z_val[i * size + j, :] = numpy.array(
+                    [i / float(0.3 * size) - .5 / .3,
+                     j / float(0.3 * size) - .5 / .3])
         samples = decode_z(z_val)
         samples = samples.reshape((size, size, 28, 28))
         samples = numpy.concatenate(samples, axis=1)
         samples = numpy.concatenate(samples, axis=1)
-        plt.imshow(samples)
-        plt.show()
-        for i in xrange(num_samples):
-            sample = numpy.concatenate([sample, samples[i].reshape((28, 28))],
-                                       axis=1)
-        plt.imshow(sample)
+        plt.imshow(samples, cmap=plt.get_cmap('Greys'))
         plt.show()
         f = function([features], x_hat)
         for data in train_stream.get_epoch_iterator():
             data_hat = f(data[0])
-            break
-        for image in data_hat:
-            plt.imshow(image.reshape((28, 28)))
-            plt.show()
+            for image, image_hat in zip(data[0], data_hat):
+                im = numpy.concatenate([image_hat.reshape((28, 28)),
+                                        image.reshape((28, 28))])
+                plt.imshow(im, cmap=plt.get_cmap('Greys'))
+                plt.show()
 
 
 def parse_args():
