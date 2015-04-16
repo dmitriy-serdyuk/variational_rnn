@@ -48,14 +48,9 @@ def _filter_long(data):
 
 
 def _make_target(data):
-    dt = np.array(data[0], dtype='int64')
-    padding = np.zeros_like(dt)
-    return np.concatenate([padding, dt], axis=0),
-
-
-def _make_feature(data):
-    padding = np.zeros_like(data[0])
-    return np.concatenate([data[0], padding], axis=0), data[1]
+    output = np.roll(data[0], 1)
+    output[0] = 0
+    return output,
 
 
 def main(model_path, recurrent_type):
@@ -66,7 +61,6 @@ def main(model_path, recurrent_type):
     data_stream = Filter(data_stream, _filter_long)
     data_stream = Mapping(data_stream, _make_target,
                           add_sources=('target',))
-    data_stream = Mapping(data_stream, _make_feature)
     data_stream = Batch(data_stream, iteration_scheme=ConstantScheme(100))
     data_stream = Padding(data_stream)
     data_stream = Mapping(data_stream, _transpose)
@@ -136,11 +130,14 @@ def parse_args():
     return parser.parse_args()
 
 
-def _transpose(data):
-    return data[0].transpose(1, 0, 2, 3),
+#def _transpose(data):
+#    print data[0].shape
+#    return data[0].transpose(1, 0, 2, 3),
 
 
 if __name__ == '__main__':
+    args = parse_args()
+    main(**args.__dict__)
     dataset = BouncingBalls(100, 30)
     stream = DataStream(dataset, iteration_scheme=ConstantScheme(1))
     stream = Batch(stream, ConstantScheme(100))
@@ -161,5 +158,3 @@ if __name__ == '__main__':
         #plt.imshow(image, interpolation='none')
         ani = animation.ArtistAnimation(fig, ims, interval=50, blit=True)
         plt.show()
-    #args = parse_args()
-    #main(**args.__dict__)
